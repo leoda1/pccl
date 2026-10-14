@@ -7,7 +7,7 @@
 #
 
 # PCCL Collective Examples
-EXAMPLES = 01_allreduce
+EXAMPLES = 01_allreduce 02_allgather
 
 # Default target
 all: $(EXAMPLES)

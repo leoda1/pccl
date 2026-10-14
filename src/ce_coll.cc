@@ -179,8 +179,17 @@ static inline bool ceStreamCapturing(hggcStream_t stream) {
   return ncclCudaGraphValid(graph);
 }
 
+// comm->okiSupport only exists on SDK >= 2.2; older SDKs never support OKI.
+static inline bool ceOkiSupport(ncclComm_t comm) {
+#if PCCL_HGGC_VERSION >= PCCL_HGGC_DRIVER_VERSION(2, 2, 0)
+  return comm->okiSupport;
+#else
+  return false;
+#endif
+}
+
 bool ncclCeAvailable(ncclComm_t comm, ncclFunc_t coll, int/*ncclRedOp_t*/ red, ncclDataType_t ty, size_t count, ncclSymRegType_t winRegType, const void* recvbuff, hggcStream_t stream) {
-  if (!ncclCeImplemented(coll, red, ty, comm->okiSupport)) {
+  if (!ncclCeImplemented(coll, red, ty, ceOkiSupport(comm))) {
     TRACE(NCCL_TUNING, "Skipping CE collective: not implemented");
     return false;
   }
@@ -277,7 +286,7 @@ ncclResult_t ncclCeInit(ncclComm_t comm) {
   // The CE reduce family's waitValue semantics are waitValue = 1 + iter - pcclCeReduceMaxSect,
   // with the first iter == comm->ceReduceStep. The tail/head arrays must be pre-seeded
   // to ceReduceStep so the first GEQ wait passes; otherwise the collective deadlocks.
-  if (comm->okiSupport && (ncclCeReduceEnabled(ncclFuncAllReduce) || ncclCeReduceEnabled(ncclFuncReduceScatter))) {
+  if (ceOkiSupport(comm) && (ncclCeReduceEnabled(ncclFuncAllReduce) || ncclCeReduceEnabled(ncclFuncReduceScatter))) {
     int count = comm->nRanks * PCCL_CE_MAX_DIE_NUM;
     NCCLCHECKGOTO(ncclCalloc(&ceArStepInitMem, count), ret, fail);
     for (int i = 0; i < count; i++) ceArStepInitMem[i] = comm->ceReduceStep;
